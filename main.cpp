@@ -43,12 +43,12 @@ void on_size_changed()
 
 enum class NodeType
 {
-  WEIGHT = 0,
-  ASSET,
-  CONDITIONAL,
+  Weight = 0,
+  Asset,
+  Conditional,
   COUNT
 };
-static constexpr const char * const node_types[] = {"WEIGHT", "ASSET", "CONDITIONAL"};
+static constexpr const char *const kNodeTypes[] = {"Weight", "Asset", "Conditional"};
 
 enum class FunctionType
 {
@@ -56,6 +56,7 @@ enum class FunctionType
   ExponentialMovingAverage,
   COUNT
 };
+static constexpr const char *const kFunctionTypes[] = {"MovingAverage", "ExponentialMovingAverage"};
 
 enum class WeightType
 {
@@ -63,6 +64,7 @@ enum class WeightType
   Specified,
   COUNT
 };
+static constexpr const char *const kWeightTypes[] = {"Evenly", "Specified"};
 
 enum class OperatorType
 {
@@ -73,6 +75,8 @@ enum class OperatorType
   Greater,
   COUNT
 };
+static constexpr const char *const kOperatorTypes[] = {"Smaller", "SmallerOrEqual", "Equal", "GreaterOrEqual", "Greater"};
+
 struct Condition
 {
   FunctionType left_function_type;
@@ -98,13 +102,69 @@ struct TreeNode {
     std::vector<std::shared_ptr<TreeNode>> children;
 };
 
+void process_conditions() {
+      static ImGuiComboFlags flags = 0;
+      {
+        const char *items[] = {"AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG", "HHHH", "IIII", "JJJJ", "KKKK", "LLLLLLL", "MMMM", "OOOOOOO"};
+        static int item_current_idx = 0;                           // Here we store our selection data as an index.
+        const char *combo_preview_value = items[item_current_idx]; // Pass in the preview value visible before opening the combo (it could be anything)
+        if (ImGui::BeginCombo("Function", combo_preview_value, flags))
+        {
+          for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+          {
+            const bool is_selected = (item_current_idx == n);
+            if (ImGui::Selectable(items[n], is_selected))
+              item_current_idx = n;
+
+            // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+            if (is_selected)
+              ImGui::SetItemDefaultFocus();
+          }
+          ImGui::EndCombo();
+        }
+      }
+
+      {
+        const char *items[] = {"AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG", "HHHH", "IIII", "JJJJ", "KKKK", "LLLLLLL", "MMMM", "OOOOOOO"};
+        static int item_current_idx = 0;                           // Here we store our selection data as an index.
+        const char *combo_preview_value = items[item_current_idx]; // Pass in the preview value visible before opening the combo (it could be anything)
+        if (ImGui::BeginCombo("Number of days", combo_preview_value, flags))
+        {
+          for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+          {
+            const bool is_selected = (item_current_idx == n);
+            if (ImGui::Selectable(items[n], is_selected))
+              item_current_idx = n;
+
+            // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+            if (is_selected)
+              ImGui::SetItemDefaultFocus();
+          }
+          ImGui::EndCombo();
+        }
+      }
+}
+
 void dfs(std::shared_ptr<TreeNode> node)
 {
   if (!node) {
     return;
   }
-  if (node->node_type == NodeType::ASSET) {
+  if (node->node_type == NodeType::Asset) {
     ImGui::Text("DefaultAsset");
+    return;
+  }
+  if (node->node_type == NodeType::Conditional)
+  {
+    ImGui::Button("Conditional");
+    if (ImGui::BeginPopupContextItem(nullptr, /*popup_flags=*/0)) // 0 is left click.
+    {
+      // ImGui::Text("Edit name:");
+      // static char name[32] = "If/else";
+      // ImGui::InputText("##edit", name, IM_ARRAYSIZE(name));
+      process_conditions();
+      ImGui::EndPopup();
+    }
     return;
   }
   // static uint64_t node_id = 0;
@@ -120,12 +180,12 @@ void dfs(std::shared_ptr<TreeNode> node)
     if (ImGui::BeginPopup("Add Block"))
     {
       ImGui::SeparatorText("Options");
-      for (int i = 0; i < IM_ARRAYSIZE(node_types); i++)
+      for (int i = 0; i < IM_ARRAYSIZE(kNodeTypes); i++)
       {
-        if (ImGui::Selectable(node_types[i]))
-        {
-          selected_type = i;
-          new_node->node_type = static_cast<NodeType>(i);
+          if (ImGui::Selectable(kNodeTypes[i]))
+          {
+              selected_type = i;
+              new_node->node_type = static_cast<NodeType>(i);
         }
       }
       ImGui::EndPopup();
