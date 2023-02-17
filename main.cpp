@@ -41,14 +41,59 @@ void on_size_changed()
   ImGui::SetCurrentContext(ImGui::GetCurrentContext());
 }
 
-enum NodeType {
-  CONDITION,
-  ITEM
+enum class NodeType
+{
+  WEIGHT = 0,
+  ASSET,
+  CONDITIONAL,
+  COUNT
+};
+static constexpr const char * const node_types[] = {"WEIGHT", "ASSET", "CONDITIONAL"};
+
+enum class FunctionType
+{
+  MovingAverage,
+  ExponentialMovingAverage,
+  COUNT
 };
 
+enum class WeightType
+{
+  Evenly,
+  Specified,
+  COUNT
+};
+
+enum class OperatorType
+{
+  Smaller,
+  SmallerOrEqual,
+  Equal,
+  GreaterOrEqual,
+  Greater,
+  COUNT
+};
+struct Condition
+{
+  FunctionType left_function_type;
+  std::string left_asset_name;
+  OperatorType operator_type;
+  FunctionType right_function_type;
+  std::string right_asset_name;
+  bool is_right_fixed;
+  double fixed_value;
+};
+
+struct Conditions
+{
+  std::vector<Condition> conditions;
+  // The size of |is_and| is the size of |conditions| - 1.
+  std::vector<bool> is_and;
+};
 struct TreeNode {
-    uint64_t id = 0;
-    std::string name = "";
+    std::string asset = "+";
+    WeightType weight_type;
+    Conditions conditions;
     NodeType node_type;
     std::vector<std::shared_ptr<TreeNode>> children;
 };
@@ -58,33 +103,37 @@ void dfs(std::shared_ptr<TreeNode> node)
   if (!node) {
     return;
   }
-  static uint64_t node_id = 0;
-  if (ImGui::TreeNode(std::to_string(node->id).c_str())) {
+  if (node->node_type == NodeType::ASSET) {
+    ImGui::Text("DefaultAsset");
+    return;
+  }
+  // static uint64_t node_id = 0;
+  if (ImGui::TreeNode(node->asset.c_str())) {
     ImGui::Text("Weight equal");
-    if (ImGui::Button("Add TreeNode")) {
-
-      std::shared_ptr<TreeNode> new_node = std::make_shared<TreeNode>();
-      new_node->id = ++node_id;
-      node->children.push_back(new_node);
-
-      // static int selected_type = -1;
-      // const char* node_types[] = { "CONDITION", "ITEM" };
-      // if (ImGui::Button("Select..")) {
-      //   ImGui::OpenPopup("my_select_popup");
-      // }
-      // ImGui::SameLine();
-      // ImGui::TextUnformatted(selected_type == -1 ? "<None>" : node_types[selecteBreamd_fish]);
-      // if (ImGui::BeginPopup("my_select_popup"))
-      // {
-      //     ImGui::SeparatorText("Aquarium");
-      //     for (int i = 0; i < IM_ARRAYSIZE(node_types); i++)
-      //         if (ImGui::Selectable(node_types[i]))
-      //             selected_type = i;
-      //     ImGui::EndPopup();
-      // }
-
+    if (ImGui::Button("Add a Block"))
+    {
+      ImGui::OpenPopup("Add Block");
     }
-
+    static int selected_type = -1;
+    
+    std::shared_ptr<TreeNode> new_node = std::make_shared<TreeNode>();
+    if (ImGui::BeginPopup("Add Block"))
+    {
+      ImGui::SeparatorText("Options");
+      for (int i = 0; i < IM_ARRAYSIZE(node_types); i++)
+      {
+        if (ImGui::Selectable(node_types[i]))
+        {
+          selected_type = i;
+          new_node->node_type = static_cast<NodeType>(i);
+        }
+      }
+      ImGui::EndPopup();
+    }
+    if (selected_type != -1) {
+      node->children.push_back(new_node);
+      selected_type = -1;
+    }
 
     for (auto& child: node->children) {
       dfs(child);
