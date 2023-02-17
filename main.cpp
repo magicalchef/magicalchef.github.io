@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include <queue>
+#include <map>
 
 GLFWwindow *g_window;
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -42,8 +43,8 @@ void on_size_changed()
 }
 
 static constexpr const char *const kAssets[] = {"AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG", "HHHH", "IIII", "JJJJ", "KKKK", "LLLLLLL", "MMMM", "OOOOOOO"};
-static int g_asset_id = 0;
-static int g_func_id = 0;
+static uint64_t g_asset_id = 0;
+static uint64_t g_func_id = 0;
 
 enum class NodeType
 {
@@ -107,12 +108,32 @@ struct TreeNode
   std::vector<std::shared_ptr<TreeNode>> children;
 };
 
-std::string GetUniqueAssetLabel() {
-  return "asset" + std::to_string(g_asset_id++);
+static std::map<std::shared_ptr<TreeNode>, std::map<int, uint64_t>> gAssetLabels;
+std::string GetUniqueAssetLabel(std::shared_ptr<TreeNode> node, int local_asset_id) {
+  auto it = gAssetLabels.find(node);
+  const std::string kAsset = "asset##";
+  if (it != gAssetLabels.end()) {
+    const auto it2 = it->second.find(local_asset_id);
+    if (it2 != it->second.end()) {
+      return kAsset + std::to_string(it2->second);
+    }
+  }
+  gAssetLabels[node][local_asset_id] = g_asset_id;
+  return kAsset + std::to_string(g_asset_id++);
 }
 
-std::string GetUniqueFuncLabel() {
-  return "of" + std::to_string(g_func_id++);
+static std::map<std::shared_ptr<TreeNode>, std::map<uint64_t, uint64_t>> gFuncLabels;
+std::string GetUniqueFuncLabel(std::shared_ptr<TreeNode> node, int local_func_id) {
+  auto it = gFuncLabels.find(node);
+  const std::string kFunc = "of##";
+  if (it != gFuncLabels.end()) {
+    const auto it2 = it->second.find(local_func_id);
+    if (it2 != it->second.end()) {
+      return kFunc + std::to_string(it2->second);
+    }
+  }
+  gFuncLabels[node][local_func_id] = g_func_id;
+  return kFunc + std::to_string(g_func_id++);
 }
 
 void AddFunctionDropdown(int &item_current_idx, const std::string& unique_name)
@@ -175,21 +196,20 @@ void AddOperatorDropdown(int &item_current_idx, const char *unique_name)
   }
 }
 
-void ProcessConditions()
+void ProcessConditions(std::shared_ptr<TreeNode> node)
 {
   {
     static char buf1[64] = "";
     ImGui::InputText("days", buf1, 64);
   }
-  static int func_id = 0;
   {
     static int item_current_idx = 0;
-    static std::string unique_name = GetUniqueFuncLabel();
+    static std::string unique_name = GetUniqueFuncLabel(node, 0);
     AddFunctionDropdown(item_current_idx, unique_name);
   }
   {
     static int item_current_idx = 0;
-    static std::string unique_name = GetUniqueAssetLabel();
+    static std::string unique_name = GetUniqueAssetLabel(node, -1);
     AddAssetDropdown(item_current_idx, unique_name);
   }
   {
@@ -211,19 +231,19 @@ void ProcessConditions()
     }
     {
       static int item_current_idx = 0;
-      static std::string unique_name = GetUniqueFuncLabel();
+      static std::string unique_name = GetUniqueFuncLabel(node, 1);
       AddFunctionDropdown(item_current_idx, unique_name);
     }
     {
       static int item_current_idx = 0;
-      static std::string unique_name = GetUniqueAssetLabel();
+      static std::string unique_name = GetUniqueAssetLabel(node, -2);
       AddAssetDropdown(item_current_idx, unique_name);
     }
   }
   ImGui::Checkbox("Fixed_Value", &is_fixed_value);
 }
 
-void DepthFirstProcessing(std::shared_ptr<TreeNode> node)
+void DepthFirstProcessing(int child_id, std::shared_ptr<TreeNode> node)
 {
   if (!node)
   {
@@ -233,7 +253,7 @@ void DepthFirstProcessing(std::shared_ptr<TreeNode> node)
   {
     {
       static int item_current_idx = 0;
-      static std::string unique_name = GetUniqueAssetLabel();
+      static std::string unique_name = GetUniqueAssetLabel(node, child_id);
       AddAssetDropdown(item_current_idx, unique_name);
     }
     return;
@@ -243,7 +263,7 @@ void DepthFirstProcessing(std::shared_ptr<TreeNode> node)
     ImGui::Button("Conditional");
     if (ImGui::BeginPopupContextItem(nullptr, /*popup_flags=*/0)) // 0 is left click.
     {
-      ProcessConditions();
+      ProcessConditions(node);
       ImGui::EndPopup();
     }
     return;
@@ -257,7 +277,6 @@ void DepthFirstProcessing(std::shared_ptr<TreeNode> node)
       ImGui::OpenPopup("Add Block");
     }
     static int selected_type = -1;
-
     std::shared_ptr<TreeNode> new_node = std::make_shared<TreeNode>();
     if (ImGui::BeginPopup("Add Block"))
     {
@@ -278,9 +297,9 @@ void DepthFirstProcessing(std::shared_ptr<TreeNode> node)
       selected_type = -1;
     }
 
-    for (auto &child : node->children)
+    for (int child_id = 0; child_id < node->children.size(); ++child_id)
     {
-      DepthFirstProcessing(child);
+      DepthFirstProcessing(child_id+1, node->children.at(child_id));
     }
     ImGui::TreePop();
   }
@@ -313,7 +332,7 @@ void loop()
     ImGui::Begin("Dev window");
     ImGui::Text("Hello from a dev window!");
     static std::shared_ptr<TreeNode> root = std::make_shared<TreeNode>();
-    DepthFirstProcessing(root);
+    DepthFirstProcessing(0, root);
     ImGui::End();
   }
 
