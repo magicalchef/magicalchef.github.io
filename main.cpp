@@ -15,16 +15,6 @@
 #include <iostream>
 #include <queue>
 
-
-// Helper to wire Editor markers located in code to an interactive browser
-typedef void (*ImGuiEditorMarkerCallback)(const char* file, int line, const char* section, void* user_data);
-extern ImGuiEditorMarkerCallback      GImGuiEditorMarkerCallback;
-extern void*                        GImGuiEditorMarkerCallbackUserData;
-ImGuiEditorMarkerCallback             GImGuiEditorMarkerCallback = NULL;
-void*                               GImGuiEditorMarkerCallbackUserData = NULL;
-#define IMGUI_EDITOR_MARKER(section)  do { if (GImGuiEditorMarkerCallback != NULL) GImGuiEditorMarkerCallback(__FILE__, __LINE__, section, GImGuiEditorMarkerCallbackUserData); } while (0)
-
-
 GLFWwindow* g_window;
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 bool show_demo_window = true;
@@ -51,10 +41,56 @@ void on_size_changed()
   ImGui::SetCurrentContext(ImGui::GetCurrentContext());
 }
 
+enum NodeType {
+  CONDITION,
+  ITEM
+};
+
 struct TreeNode {
     uint64_t id = 0;
     std::string name = "";
-    std::vector<TreeNode> children;
+    NodeType node_type;
+    std::vector<std::shared_ptr<TreeNode>> children;
+};
+
+void dfs(std::shared_ptr<TreeNode> node)
+{
+  if (!node) {
+    return;
+  }
+  static uint64_t node_id = 0;
+  if (ImGui::TreeNode(std::to_string(node->id).c_str())) {
+    ImGui::Text("Weight equal");
+    if (ImGui::Button("Add TreeNode")) {
+
+      std::shared_ptr<TreeNode> new_node = std::make_shared<TreeNode>();
+      new_node->id = ++node_id;
+      node->children.push_back(new_node);
+
+      // static int selected_type = -1;
+      // const char* node_types[] = { "CONDITION", "ITEM" };
+      // if (ImGui::Button("Select..")) {
+      //   ImGui::OpenPopup("my_select_popup");
+      // }
+      // ImGui::SameLine();
+      // ImGui::TextUnformatted(selected_type == -1 ? "<None>" : node_types[selecteBreamd_fish]);
+      // if (ImGui::BeginPopup("my_select_popup"))
+      // {
+      //     ImGui::SeparatorText("Aquarium");
+      //     for (int i = 0; i < IM_ARRAYSIZE(node_types); i++)
+      //         if (ImGui::Selectable(node_types[i]))
+      //             selected_type = i;
+      //     ImGui::EndPopup();
+      // }
+
+    }
+
+
+    for (auto& child: node->children) {
+      dfs(child);
+    }
+    ImGui::TreePop();
+  }
 };
 
 void loop()
@@ -75,64 +111,22 @@ void loop()
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
 
-  // 1. Show a simple window.
-  // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets automatically appears in a window called "Debug".
+  // Show a simple window.
+  // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets
+  // automatically appears in a window called "Debug".
   {
-      static float f = 0.0f;
-      static int counter = 0;
-      ImGui::Text("Hello, world!");                           // Display some text (you can use a format string too)
-      ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-      ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-      ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our windows open/close state
-      ImGui::Checkbox("Another Window", &show_another_window);
-
-      if (ImGui::Button("Button"))                            // Buttons return true when clicked (NB: most widgets return true when edited/activated)
-          counter++;
-      ImGui::SameLine();
-      ImGui::Text("counter = %d", counter);
-
-      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-  }
-
-  //std::cout << "2nd window" << std::endl;
-
-
-
-
-  // 2. TODO: properly keep and update the TreeNode.
-  if (show_another_window)
-  {
-      ImGui::Begin("Another Window", &show_another_window);
-      ImGui::Text("Hello from another window!");
-      static TreeNode root;
-      static uint64_t tree_node_id = 0;
-      std::queue<TreeNode> tree_node_queue;
-      tree_node_queue.push(root);
-      while (!tree_node_queue.empty()){
-        auto tree_node = tree_node_queue.front();
-        tree_node_queue.pop();
-        // IMGUI_EDITOR_MARKER("my trees");
-        if (ImGui::TreeNode(std::to_string(tree_node.id).c_str())) {
-          ImGui::Text("Weight equal");
-          if (ImGui::Button("Add TreeNode")) {
-            TreeNode new_node;
-            new_node.id = ++tree_node_id;
-            tree_node.children.push_back(new_node);
-          }
-          for (const auto& child: tree_node.children) {
-            tree_node_queue.push(child);
-          }
-
-          ImGui::TreePop();
-        }
-      }
-      if (ImGui::Button("Close Me"))
-          show_another_window = false;
+      ImGui::SetNextWindowPos(ImVec2(30, 30), ImGuiCond_FirstUseEver);
+      ImGui::SetNextWindowSize(ImVec2(300, 400), ImGuiCond_FirstUseEver);
+      ImGui::Begin("Dev window");
+      ImGui::Text("Hello from a dev window!");
+      static std::shared_ptr<TreeNode> root = std::make_shared<TreeNode>();
+      dfs(root);
       ImGui::End();
   }
 
-  // 3. Show the ImGui demo window. Most of the sample code is in ImGui::ShowDemoWindow(). Read its code to learn more about Dear ImGui!
+  // Show the ImGui demo window. 
+  // Most of the sample code is in ImGui::ShowDemoWindow().
+  // Read its code to learn more about Dear ImGui!
   if (show_demo_window)
   {
       ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver); // Normally user code doesn't need/want to call this because positions are saved in .ini file anyway. Here we just want to make the demo initial state a bit more friendly!
